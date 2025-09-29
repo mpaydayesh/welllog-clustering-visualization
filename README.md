@@ -87,11 +87,13 @@ This tool helps users understand:
 - Practical applications of unsupervised learning in petroleum engineering
 
 ## 📁 Project Structure
-welllog-clustering-visualization/
-│
-├── index.html          # Main application (all-in-one file)
-├── README.md           # This file
-└── LICENSE             # MIT License
+
+**Repository Contents:**
+- `index.html` - Main application (all-in-one file with HTML, CSS, and JavaScript)
+- `README.md` - This documentation file
+- `LICENSE` - MIT License
+
+**No build process required!** Simply open `index.html` in any modern web browser.
 
 ## 🔧 Local Development
 
