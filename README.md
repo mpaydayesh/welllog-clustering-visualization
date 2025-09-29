@@ -92,3 +92,11 @@ welllog-clustering-visualization/
 ├── index.html          # Main application (all-in-one file)
 ├── README.md           # This file
 └── LICENSE             # MIT License
+
+## 🔧 Local Development
+
+To run locally:
+
+1. Clone the repository:
+```bash
+git clone https://github.com/YOUR-USERNAME/welllog-clustering-visualization.git
