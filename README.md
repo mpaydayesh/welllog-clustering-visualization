@@ -94,11 +94,3 @@ This tool helps users understand:
 - `LICENSE` - MIT License
 
 **No build process required!** Simply open `index.html` in any modern web browser.
-
-## 🔧 Local Development
-
-To run locally:
-
-1. Clone the repository:
-```bash
-git clone https://github.com/YOUR-USERNAME/welllog-clustering-visualization.git
