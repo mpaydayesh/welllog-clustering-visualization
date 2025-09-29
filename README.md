@@ -8,7 +8,7 @@ An interactive, browser-based educational tool for exploring unsupervised cluste
 
 ## 🌐 Live Demo
 
-**Try it now:** [https://mpaydayesh.github.io/welllog-clustering-visualization/](https://mpaydayesh.github.io/welllog-clustering-visualization/)
+**Try it now:** https://mpaydayesh.github.io/welllog-clustering-visualization/
 
 *(Replace YOUR-USERNAME with your actual GitHub username)*
 
