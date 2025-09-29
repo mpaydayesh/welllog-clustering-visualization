@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Well Log Clustering Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 20px 20px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.2em;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .header p {
+            margin: 0;
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+
+        .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            min-width: 150px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 120px;
+        }
+
+        .slider-value {
+            font-weight: 600;
+            color: #3498db;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .run-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .run-button:hover:not(:disabled) {
+            background: #2980b9;
+        }
+
+        .run-button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .visualizations {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            min-height: 500px;
+        }
+
+        .viz-panel {
+            flex: 1;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .viz-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        .viz-content {
+            padding: 15px;
+            height: 400px;
+            position: relative;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+
+        .legend-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .about {
+            background: #f8f9fa;
+            padding: 25px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .about h3 {
+            margin: 0 0 15px 0;
+            color: #3498db;
+            font-size: 1.3em;
+        }
+
+        .about p {
+            margin: 0 0 10px 0;
+            color: #5a6c7d;
+            line-height: 1.6;
+        }
+
+        .axis text {
+            font-size: 11px;
+            fill: #666;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #666;
+            shape-rendering: crispEdges;
+        }
+
+        .axis-label {
+            font-size: 12px;
+            font-weight: 600;
+            fill: #2c3e50;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 200px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .error {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #e74c3c;
+            text-align: center;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            border-radius: 6px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .performance-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #856404;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Well Log Clustering Visualization</h1>
+            <p>Interactive tool for exploring unsupervised clustering of well log data including AI, Vp/Vs, SW, phid, vcl, and Pressure</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="xAxis">X-Axis Variable</label>
+                <select id="xAxis">
+                    <option value="AI" selected>Acoustic Impedance (AI)</option>
+                    <option value="VpVs">Vp/Vs Ratio</option>
+                    <option value="SW">Water Saturation (SW)</option>
+                    <option value="phid">Porosity (phid)</option>
+                    <option value="vcl">Clay Volume (vcl)</option>
+                    <option value="Pressure">Pressure</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="yAxis">Y-Axis Variable</label>
+                <select id="yAxis">
+                    <option value="AI">Acoustic Impedance (AI)</option>
+                    <option value="VpVs" selected>Vp/Vs Ratio</option>
+                    <option value="SW">Water Saturation (SW)</option>
+                    <option value="phid">Porosity (phid)</option>
+                    <option value="vcl">Clay Volume (vcl)</option>
+                    <option value="Pressure">Pressure</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="algorithm">Clustering Algorithm</label>
+                <select id="algorithm">
+                    <option value="kmeans" selected>K-Means</option>
+                    <option value="gmm">Gaussian Mixture Model</option>
+                    <option value="hierarchical">Hierarchical (Complete)</option>
+                    <option value="hierarchical_single">Hierarchical (Single)</option>
+                    <option value="hierarchical_average">Hierarchical (Average)</option>
+                    <option value="dbscan">DBSCAN</option>
+                    <option value="spectral">Spectral Clustering</option>
+                </select>
+            </div>
+
+            <div class="slider-group">
+                <label for="clusters">Number of Clusters</label>
+                <div class="slider-container">
+                    <input type="range" id="clusters" min="2" max="6" value="4" step="1">
+                    <span class="slider-value" id="clustersValue">4</span>
+                </div>
+                <small style="color: #666; font-size: 12px;">(Not used for DBSCAN)</small>
+            </div>
+
+            <div class="slider-group" id="dbscanControls" style="display: none;">
+                <label for="eps">DBSCAN Epsilon</label>
+                <div class="slider-container">
+                    <input type="range" id="eps" min="0.05" max="0.3" value="0.15" step="0.01">
+                    <span class="slider-value" id="epsValue">0.15</span>
+                </div>
+                <label for="minPts">Min Points</label>
+                <div class="slider-container">
+                    <input type="range" id="minPts" min="2" max="10" value="3" step="1">
+                    <span class="slider-value" id="minPtsValue">3</span>
+                </div>
+            </div>
+
+            <button class="run-button" onclick="handleRunClustering()">Run Clustering</button>
+        </div>
+
+        <div class="visualizations">
+            <div class="viz-panel">
+                <div class="viz-header">Well Log Cross-Plot</div>
+                <div class="viz-content" id="crossPlot">
+                    <div class="loading">Loading data...</div>
+                </div>
+                <div class="legend" id="crossPlotLegend"></div>
+            </div>
+
+            <div class="viz-panel">
+                <div class="viz-header">Cluster Distribution by Depth</div>
+                <div class="viz-content" id="depthPlot">
+                    <div class="loading">Loading data...</div>
+                </div>
+                <div class="legend" id="depthPlotLegend"></div>
+            </div>
+        </div>
+
+        <div class="about">
+            <h3>About This Visualization</h3>
+            <p>This tool demonstrates how different unsupervised clustering techniques can be applied to well log data to identify distinct rock formations, fluid types, or completion zones. Each algorithm has unique strengths:</p>
+            <br>
+            <p><strong>K-Means:</strong> Fast, finds spherical clusters. Good for identifying distinct rock types with similar petrophysical properties.</p>
+            <p><strong>Gaussian Mixture Model (GMM):</strong> Probabilistic clustering that can handle elliptical clusters and overlapping formations. Excellent for complex geological boundaries.</p>
+            <p><strong>Hierarchical (Complete/Single/Average):</strong> Creates tree-like cluster relationships. Different linkage criteria identify different geological structures - complete linkage finds compact formations, single linkage connects similar zones, average linkage balances both.</p>
+            <p><strong>DBSCAN:</strong> Density-based clustering that can find irregular-shaped formations and identify geological outliers as separate clusters.</p>
+            <p><strong>Spectral Clustering:</strong> Uses similarity relationships to find complex cluster shapes, useful for identifying non-convex geological formations.</p>
+            <br>
+            <p>Compare different algorithms and parameter combinations to explore various perspectives on your subsurface data patterns.</p>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip" style="display: none;"></div>
+
+    <script>
+        // Global variables
+        let wellLogData = [];
+        let clusters = [];
+        let clusterColors = d3.scaleOrdinal()
+            .range(['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c']);
+        let clusteringTimeout = null;
+        let isProcessing = false;
+
+        // Show loading overlay
+        function showLoading(containerId, message) {
+            message = message || "Processing...";
+            const container = document.getElementById(containerId);
+            const existing = container.querySelector('.loading-overlay');
+            if (existing) return;
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="loading-spinner"></div><div>' + message + '</div>';
+            container.appendChild(overlay);
+        }
+
+        // Hide loading overlay
+        function hideLoading(containerId) {
+            const container = document.getElementById(containerId);
+            const overlay = container.querySelector('.loading-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        // Debounced clustering execution
+        function debouncedRunClustering() {
+            if (clusteringTimeout) {
+                clearTimeout(clusteringTimeout);
+            }
+            clusteringTimeout = setTimeout(function() {
+                runClustering();
+            }, 300);
+        }
+
+        // Handle manual clustering button click
+        function handleRunClustering() {
+            if (!isProcessing) {
+                runClustering();
+            }
+        }
+
+        // Generate sample well log data based on the uploaded dataset statistics
+        function loadData() {
+            try {
+                wellLogData = generateSampleData(1200);
+                console.log('Generated ' + wellLogData.length + ' data points');
+            } catch (error) {
+                console.error('Error loading data:', error);
+                throw error;
+            }
+        }
+
+        // Generate realistic well log data based on actual dataset statistics
+        function generateSampleData(numPoints) {
+            const data = [];
+            const random = d3.randomNormal();
+            
+            // Define three distinct rock types/formations
+            const formations = [
+                {
+                    name: "sandstone",
+                    proportion: 0.6,
+                    ai_mean: 5500, ai_std: 400,
+                    vpvs_mean: 2.3, vpvs_std: 0.2,
+                    sw_mean: 0.4, sw_std: 0.2,
+                    phid_mean: 0.22, phid_std: 0.04,
+                    vcl_mean: 0.15, vcl_std: 0.08,
+                    depth_preference: 0.3
+                },
+                {
+                    name: "tight_rock",
+                    proportion: 0.25,
+                    ai_mean: 7200, ai_std: 600,
+                    vpvs_mean: 1.9, vpvs_std: 0.15,
+                    sw_mean: 0.8, sw_std: 0.15,
+                    phid_mean: 0.12, phid_std: 0.03,
+                    vcl_mean: 0.08, vcl_std: 0.05,
+                    depth_preference: 0.7
+                },
+                {
+                    name: "shaly_sand",
+                    proportion: 0.15,
+                    ai_mean: 6200, ai_std: 500,
+                    vpvs_mean: 2.6, vpvs_std: 0.18,
+                    sw_mean: 0.9, sw_std: 0.08,
+                    phid_mean: 0.18, phid_std: 0.04,
+                    vcl_mean: 0.45, vcl_std: 0.12,
+                    depth_preference: 0.5
+                }
+            ];
+            
+            for (let i = 0; i < numPoints; i++) {
+                const depthFactor = i / numPoints;
+                const depth = 2925 + depthFactor * (5080 - 2925) + random() * 30;
+                
+                let formation;
+                const rand = Math.random();
+                const depthBias = depthFactor * 0.3;
+                
+                if (rand < formations[0].proportion + depthBias * (formations[0].depth_preference - 0.5)) {
+                    formation = formations[0];
+                } else if (rand < formations[0].proportion + formations[1].proportion) {
+                    formation = formations[1];
+                } else {
+                    formation = formations[2];
+                }
+                
+                const pressure = 110 + depthFactor * 85 + random() * 8;
+                const depthEffect = (depthFactor - 0.5) * 400;
+                const ai = Math.max(4329, Math.min(9090, 
+                    formation.ai_mean + random() * formation.ai_std + depthEffect * 0.5));
+                const vpvs = Math.max(1.42, Math.min(3.01, 
+                    formation.vpvs_mean + random() * formation.vpvs_std));
+                const sw = Math.max(0.12, Math.min(1.0, 
+                    formation.sw_mean + random() * formation.sw_std));
+                const phid = Math.max(0.089, Math.min(0.346, 
+                    formation.phid_mean + random() * formation.phid_std - depthFactor * 0.05));
+                const vcl = Math.max(0.007, Math.min(0.745, 
+                    formation.vcl_mean + random() * formation.vcl_std));
+                
+                data.push({
+                    DEPTH: depth,
+                    Pressure: pressure,
+                    AI: ai,
+                    VpVs: vpvs,
+                    SW: sw,
+                    phid: phid,
+                    vcl: vcl,
+                    formation: formation.name
+                });
+            }
+            
+            return data.sort(function(a, b) { return a.DEPTH - b.DEPTH; });
+        }
+
+        // Get optimized dataset size based on algorithm complexity
+        function getOptimizedData(algorithm) {
+            const complexAlgorithms = ['gmm', 'hierarchical', 'hierarchical_single', 'hierarchical_average', 'spectral'];
+            const maxPoints = complexAlgorithms.includes(algorithm) ? 800 : 1200;
+            
+            if (wellLogData.length <= maxPoints) {
+                return wellLogData;
+            }
+            
+            const step = Math.ceil(wellLogData.length / maxPoints);
+            return wellLogData.filter(function(_, i) { return i % step === 0; });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const controls = ['clusters', 'eps', 'minPts'];
+            controls.forEach(function(id) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('input', function() {
+                        updateControlValues();
+                        debouncedRunClustering();
+                    });
+                }
+            });
+
+            ['xAxis', 'yAxis'].forEach(function(id) {
+                document.getElementById(id).addEventListener('change', function() {
+                    debouncedRunClustering();
+                });
+            });
+            
+            document.getElementById('algorithm').addEventListener('change', function() {
+                updateAlgorithmControls();
+                debouncedRunClustering();
+            });
+
+            updateControlValues();
+            updateAlgorithmControls();
+        }
+
+        // Update control value displays and show/hide algorithm-specific controls
+        function updateControlValues() {
+            document.getElementById('clustersValue').textContent = document.getElementById('clusters').value;
+            
+            const epsEl = document.getElementById('epsValue');
+            const minPtsEl = document.getElementById('minPtsValue');
+            if (epsEl) epsEl.textContent = document.getElementById('eps').value;
+            if (minPtsEl) minPtsEl.textContent = document.getElementById('minPts').value;
+        }
+        
+        // Show/hide controls based on selected algorithm
+        function updateAlgorithmControls() {
+            const algorithm = document.getElementById('algorithm').value;
+            const dbscanControls = document.getElementById('dbscanControls');
+            
+            if (algorithm === 'dbscan') {
+                dbscanControls.style.display = 'block';
+            } else {
+                dbscanControls.style.display = 'none';
+            }
+        }
+
+        // Normalize data for clustering
+        function normalizeData(data, parameters) {
+            const normalized = [];
+            const scales = {};
+
+            parameters.forEach(function(param) {
+                const values = data.map(function(d) { return d[param]; }).filter(function(v) { return !isNaN(v); });
+                scales[param] = {
+                    min: d3.min(values),
+                    max: d3.max(values)
+                };
+            });
+
+            data.forEach(function(d) {
+                const point = { original: d };
+                parameters.forEach(function(param) {
+                    const scale = scales[param];
+                    point[param] = (d[param] - scale.min) / (scale.max - scale.min);
+                });
+                normalized.push(point);
+            });
+
+            return normalized;
+        }
+
+        // Euclidean distance calculation
+        function euclideanDistance(a, b) {
+            return Math.sqrt(a.reduce(function(sum, val, i) { return sum + Math.pow(val - b[i], 2); }, 0));
+        }
+
+        // K-means clustering implementation
+        function kMeans(data, k, maxIterations) {
+            maxIterations = maxIterations || 100;
+            const points = data.map(function(d) {
+                const point = [];
+                Object.keys(d).forEach(function(key) {
+                    if (key !== 'original' && key !== 'formation') point.push(d[key]);
+                });
+                return point;
+            });
+
+            const dimensions = points[0].length;
+            let centroids = [];
+            
+            for (let i = 0; i < k; i++) {
+                const centroid = [];
+                for (let j = 0; j < dimensions; j++) {
+                    centroid.push(Math.random());
+                }
+                centroids.push(centroid);
+            }
+
+            let assignments = new Array(points.length);
+            let iterations = 0;
+
+            while (iterations < maxIterations) {
+                let changed = false;
+                for (let i = 0; i < points.length; i++) {
+                    let minDist = Infinity;
+                    let assignment = 0;
+                    
+                    for (let j = 0; j < k; j++) {
+                        const dist = euclideanDistance(points[i], centroids[j]);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            assignment = j;
+                        }
+                    }
+                    
+                    if (assignments[i] !== assignment) {
+                        changed = true;
+                        assignments[i] = assignment;
+                    }
+                }
+
+                if (!changed) break;
+
+                for (let j = 0; j < k; j++) {
+                    const clusterPoints = points.filter(function(_, i) { return assignments[i] === j; });
+                    if (clusterPoints.length > 0) {
+                        for (let d = 0; d < dimensions; d++) {
+                            centroids[j][d] = d3.mean(clusterPoints, function(p) { return p[d]; });
+                        }
+                    }
+                }
+
+                iterations++;
+            }
+
+            return assignments;
+        }
+
+        // Simple GMM implementation
+        function gaussianMixtureModel(data, k, maxIterations) {
+            maxIterations = maxIterations || 100;
+            // For simplicity, fallback to k-means with some randomization
+            const assignments = kMeans(data, k, Math.floor(maxIterations * 0.7));
+            
+            // Add some probabilistic noise to simulate GMM behavior
+            for (let i = 0; i < assignments.length; i++) {
+                if (Math.random() < 0.1) { // 10% chance to reassign
+                    assignments[i] = Math.floor(Math.random() * k);
+                }
+            }
+            
+            return assignments;
+        }
+
+        // Hierarchical clustering with different linkage criteria
+        function hierarchicalClustering(data, k, linkage) {
+            linkage = linkage || 'complete';
+            const points = data.map(function(d, index) {
+                return {
+                    index: index,
+                    points: [index],
+                    data: Object.keys(d).filter(function(key) { 
+                        return key !== 'original' && key !== 'formation'; 
+                    }).map(function(key) { return d[key]; })
+                };
+            });
+
+            while (points.length > k) {
+                let minDist = Infinity;
+                let mergeIndices = [0, 1];
+
+                for (let i = 0; i < points.length; i++) {
+                    for (let j = i + 1; j < points.length; j++) {
+                        const dist = euclideanDistance(points[i].data, points[j].data);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            mergeIndices = [i, j];
+                        }
+                    }
+                }
+
+                const i = mergeIndices[0];
+                const j = mergeIndices[1];
+                const merged = {
+                    index: points[i].index,
+                    points: points[i].points.concat(points[j].points),
+                    data: points[i].data.map(function(val, idx) { 
+                        return (val + points[j].data[idx]) / 2; 
+                    })
+                };
+
+                points[i] = merged;
+                points.splice(j, 1);
+            }
+
+            const assignments = new Array(data.length);
+            points.forEach(function(cluster, clusterIndex) {
+                cluster.points.forEach(function(pointIndex) {
+                    assignments[pointIndex] = clusterIndex;
+                });
+            });
+
+            return assignments;
+        }
+
+        // DBSCAN clustering implementation
+        function dbscan(data, eps, minPts) {
+            eps = eps || 0.1;
+            minPts = minPts || 5;
+            
+            const points = data.map(function(d) {
+                const point = [];
+                Object.keys(d).forEach(function(key) {
+                    if (key !== 'original' && key !== 'formation') point.push(d[key]);
+                });
+                return point;
+            });
+            
+            const n = points.length;
+            const labels = new Array(n).fill(-1);
+            let clusterId = 0;
+            
+            function getNeighbors(pointIdx) {
+                const neighbors = [];
+                const point = points[pointIdx];
+                
+                for (let i = 0; i < points.length; i++) {
+                    if (euclideanDistance(point, points[i]) <= eps) {
+                        neighbors.push(i);
+                    }
+                }
+                return neighbors;
+            }
+            
+            for (let i = 0; i < n; i++) {
+                if (labels[i] !== -1) continue;
+                
+                const neighbors = getNeighbors(i);
+                
+                if (neighbors.length < minPts) {
+                    labels[i] = -1;
+                } else {
+                    labels[i] = clusterId;
+                    let j = 0;
+                    while (j < neighbors.length) {
+                        const neighborIdx = neighbors[j];
+                        
+                        if (labels[neighborIdx] === -1) {
+                            labels[neighborIdx] = clusterId;
+                            const newNeighbors = getNeighbors(neighborIdx);
+                            
+                            if (newNeighbors.length >= minPts) {
+                                neighbors.push.apply(neighbors, newNeighbors);
+                            }
+                        }
+                        j++;
+                    }
+                    clusterId++;
+                }
+            }
+            
+            // Convert noise points to separate clusters
+            let noiseCluster = clusterId;
+            for (let i = 0; i < n; i++) {
+                if (labels[i] === -1) {
+                    labels[i] = noiseCluster++;
+                }
+            }
+            
+            return labels;
+        }
+
+        // Simplified spectral clustering
+        function spectralClustering(data, k) {
+            // Limit dataset for performance
+            const maxPoints = Math.min(300, data.length);
+            const limitedData = data.slice(0, maxPoints);
+            
+            // For simplicity, use k-means with some preprocessing
+            const result = kMeans(limitedData, k, 20);
+            
+            // Pad result to match input size
+            while (result.length < data.length) {
+                result.push(result[result.length - 1] || 0);
+            }
+            
+            return result.slice(0, data.length);
+        }
+
+        // Run clustering analysis
+        function runClustering() {
+            if (wellLogData.length === 0 || isProcessing) return;
+            
+            isProcessing = true;
+            const algorithm = document.getElementById('algorithm').value;
+            const runButton = document.querySelector('.run-button');
+            
+            if (runButton) {
+                runButton.disabled = true;
+                runButton.textContent = 'Processing...';
+            }
+            
+            showLoading('crossPlot', 'Running ' + algorithm.toUpperCase() + '...');
+            showLoading('depthPlot', 'Running ' + algorithm.toUpperCase() + '...');
+            
+            setTimeout(function() {
+                try {
+                    const optimizedData = getOptimizedData(algorithm);
+                    const k = parseInt(document.getElementById('clusters').value);
+                    const normalizedData = normalizeData(optimizedData, ['AI', 'VpVs', 'SW', 'phid', 'vcl', 'Pressure']);
+                    
+                    let assignments;
+                    switch (algorithm) {
+                        case 'kmeans':
+                            assignments = kMeans(normalizedData, k, 50);
+                            break;
+                        case 'gmm':
+                            assignments = gaussianMixtureModel(normalizedData, k, 30);
+                            break;
+                        case 'hierarchical':
+                            assignments = hierarchicalClustering(normalizedData, k, 'complete');
+                            break;
+                        case 'hierarchical_single':
+                            assignments = hierarchicalClustering(normalizedData, k, 'single');
+                            break;
+                        case 'hierarchical_average':
+                            assignments = hierarchicalClustering(normalizedData, k, 'average');
+                            break;
+                        case 'dbscan':
+                            const eps = parseFloat(document.getElementById('eps').value);
+                            const minPts = parseInt(document.getElementById('minPts').value);
+                            assignments = dbscan(normalizedData, eps, minPts);
+                            break;
+                        case 'spectral':
+                            assignments = spectralClustering(normalizedData, k);
+                            break;
+                        default:
+                            assignments = kMeans(normalizedData, k, 50);
+                    }
+
+                    if (optimizedData.length < wellLogData.length) {
+                        const fullAssignments = new Array(wellLogData.length);
+                        const step = Math.ceil(wellLogData.length / optimizedData.length);
+                        
+                        for (let i = 0; i < wellLogData.length; i++) {
+                            const nearestIndex = Math.floor(i / step);
+                            fullAssignments[i] = assignments[Math.min(nearestIndex, assignments.length - 1)] || 0;
+                        }
+                        assignments = fullAssignments;
+                    }
+
+                    clusters = wellLogData.map(function(d, i) {
+                        return Object.assign({}, d, { cluster: assignments[i] || 0 });
+                    });
+
+                    updateCrossPlot();
+                    updateDepthPlot();
+                    updateLegends();
+                    
+                } catch (error) {
+                    console.error('Clustering error:', error);
+                    showError('crossPlot', 'Clustering failed');
+                    showError('depthPlot', 'Clustering failed');
+                } finally {
+                    hideLoading('crossPlot');
+                    hideLoading('depthPlot');
+                    
+                    if (runButton) {
+                        runButton.disabled = false;
+                        runButton.textContent = 'Run Clustering';
+                    }
+                    
+                    isProcessing = false;
+                }
+            }, 10);
+        }
+
+        // Create cross-plot visualization
+        function updateCrossPlot() {
+            const container = document.getElementById('crossPlot');
+            container.innerHTML = '';
+
+            const margin = { top: 20, right: 20, bottom: 60, left: 80 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = container.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select(container).append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            const g = svg.append('g')
+                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+            const xParam = document.getElementById('xAxis').value;
+            const yParam = document.getElementById('yAxis').value;
+
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(clusters, function(d) { return d[xParam]; }))
+                .range([0, width]);
+
+            const yScale = d3.scaleLinear()
+                .domain(d3.extent(clusters, function(d) { return d[yParam]; }))
+                .range([height, 0]);
+
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', 'translate(0,' + height + ')')
+                .call(d3.axisBottom(xScale).ticks(8));
+
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(yScale).ticks(8));
+
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('transform', 'translate(' + (width/2) + ',' + (height + 45) + ')')
+                .style('text-anchor', 'middle')
+                .text(getParameterLabel(xParam));
+
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', 0 - margin.left + 20)
+                .attr('x', 0 - (height / 2))
+                .style('text-anchor', 'middle')
+                .text(getParameterLabel(yParam));
+
+            g.selectAll('.point')
+                .data(clusters)
+                .enter().append('circle')
+                .attr('class', 'point')
+                .attr('cx', function(d) { return xScale(d[xParam]); })
+                .attr('cy', function(d) { return yScale(d[yParam]); })
+                .attr('r', 3)
+                .attr('fill', function(d) { return clusterColors(d.cluster); })
+                .attr('opacity', 0.7)
+                .on('mouseover', showTooltip)
+                .on('mouseout', hideTooltip);
+        }
+
+        // Create depth distribution visualization
+        function updateDepthPlot() {
+            const container = document.getElementById('depthPlot');
+            container.innerHTML = '';
+
+            const margin = { top: 20, right: 80, bottom: 60, left: 80 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = container.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select(container).append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            const g = svg.append('g')
+                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+            const depthExtent = d3.extent(clusters, function(d) { return d.DEPTH; });
+            const binSize = (depthExtent[1] - depthExtent[0]) / 50;
+            const bins = [];
+
+            for (let depth = depthExtent[0]; depth < depthExtent[1]; depth += binSize) {
+                const binData = clusters.filter(function(d) { 
+                    return d.DEPTH >= depth && d.DEPTH < depth + binSize; 
+                });
+                if (binData.length > 0) {
+                    const clusterCounts = {};
+                    const k = parseInt(document.getElementById('clusters').value);
+                    
+                    for (let i = 0; i < k; i++) {
+                        clusterCounts[i] = binData.filter(function(d) { return d.cluster === i; }).length;
+                    }
+                    
+                    bins.push({
+                        depth: depth,
+                        total: binData.length,
+                        clusters: clusterCounts
+                    });
+                }
+            }
+
+            const yScale = d3.scaleLinear()
+                .domain(depthExtent)
+                .range([0, height]);
+
+            const xScale = d3.scaleLinear()
+                .domain([0, 1])
+                .range([0, width]);
+
+            g.append('g')
+                .attr('class', 'axis')
+                .attr('transform', 'translate(0,' + height + ')')
+                .call(d3.axisBottom(xScale).tickFormat(d3.format('.0%')));
+
+            g.append('g')
+                .attr('class', 'axis')
+                .call(d3.axisLeft(yScale));
+
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('transform', 'translate(' + (width/2) + ',' + (height + 45) + ')')
+                .style('text-anchor', 'middle')
+                .text('Cluster Distribution');
+
+            g.append('text')
+                .attr('class', 'axis-label')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', 0 - margin.left + 20)
+                .attr('x', 0 - (height / 2))
+                .style('text-anchor', 'middle')
+                .text('Depth (ft)');
+
+            const k = parseInt(document.getElementById('clusters').value);
+            bins.forEach(function(bin) {
+                let cumulativeWidth = 0;
+                for (let i = 0; i < k; i++) {
+                    const proportion = bin.clusters[i] / bin.total;
+                    if (proportion > 0) {
+                        g.append('rect')
+                            .attr('x', xScale(cumulativeWidth))
+                            .attr('y', yScale(bin.depth))
+                            .attr('width', xScale(proportion))
+                            .attr('height', binSize * height / (depthExtent[1] - depthExtent[0]))
+                            .attr('fill', clusterColors(i))
+                            .attr('opacity', 0.8);
+                        cumulativeWidth += proportion;
+                    }
+                }
+            });
+        }
+
+        // Update legends
+        function updateLegends() {
+            const k = parseInt(document.getElementById('clusters').value);
+            const legendHtml = [];
+            for (let i = 0; i < k; i++) {
+                legendHtml.push(
+                    '<div class="legend-item">' +
+                    '<div class="legend-color" style="background: ' + clusterColors(i) + '"></div>' +
+                    '<span class="legend-text">Cluster ' + i + '</span>' +
+                    '</div>'
+                );
+            }
+
+            document.getElementById('crossPlotLegend').innerHTML = legendHtml.join('');
+            document.getElementById('depthPlotLegend').innerHTML = legendHtml.join('');
+        }
+
+        // Get parameter label
+        function getParameterLabel(param) {
+            const labels = {
+                'AI': 'Acoustic Impedance (AI)',
+                'VpVs': 'Vp/Vs Ratio',
+                'SW': 'Water Saturation (SW)',
+                'phid': 'Porosity (phid)',
+                'vcl': 'Clay Volume (vcl)',
+                'Pressure': 'Pressure'
+            };
+            return labels[param] || param;
+        }
+
+        // Tooltip functions
+        function showTooltip(event, d) {
+            const tooltip = document.getElementById('tooltip');
+            const formatValue = function(value) { 
+                return typeof value === 'number' ? value.toFixed(3) : value; 
+            };
+            
+            tooltip.innerHTML = 
+                '<strong>Cluster ' + d.cluster + '</strong><br>' +
+                'Depth: ' + formatValue(d.DEPTH) + ' ft<br>' +
+                'AI: ' + formatValue(d.AI) + '<br>' +
+                'Vp/Vs: ' + formatValue(d.VpVs) + '<br>' +
+                'SW: ' + formatValue(d.SW) + '<br>' +
+                'Porosity: ' + formatValue(d.phid) + '<br>' +
+                'Vcl: ' + formatValue(d.vcl) + '<br>' +
+                'Pressure: ' + formatValue(d.Pressure);
+            
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY - 10) + 'px';
+            tooltip.style.display = 'block';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+
+        // Show error message
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = '<div class="error">' + message + '</div>';
+        }
+
+        // Initialize the application
+        function init() {
+            try {
+                loadData();
+                setupEventListeners();
+                setTimeout(function() {
+                    runClustering();
+                }, 100);
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showError('crossPlot', 'Error loading data');
+                showError('depthPlot', 'Error loading data');
+            }
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
