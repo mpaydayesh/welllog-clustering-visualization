@@ -87,3 +87,8 @@ This tool helps users understand:
 - Practical applications of unsupervised learning in petroleum engineering
 
 ## 📁 Project Structure
+welllog-clustering-visualization/
+│
+├── index.html          # Main application (all-in-one file)
+├── README.md           # This file
+└── LICENSE             # MIT License
